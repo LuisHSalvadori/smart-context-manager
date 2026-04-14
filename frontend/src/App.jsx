@@ -7,6 +7,10 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
 
+  // Configuration from .env
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+  const SECURITY_TOKEN = import.meta.env.VITE_APP_SECURITY_TOKEN;
+
   // Function to handle PDF Upload
   const handleUpload = async (event) => {
     const file = event.target.files[0]
@@ -17,15 +21,25 @@ function App() {
 
     setUploading(true)
     try {
-      const response = await fetch('http://127.0.0.1:8000/upload-pdf', {
+      const response = await fetch(`${API_BASE_URL}/upload-pdf`, {
         method: 'POST',
+        headers: {
+          // Send the security token generated in backend
+          'X-Custom-Token': SECURITY_TOKEN
+        },
         body: formData,
       })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Upload failed')
+      }
+
       const data = await response.json()
-      alert(`Success: ${data.filename} indexed!`)
+      alert(`Success: Document indexed!`)
     } catch (error) {
       console.error("Upload error:", error)
-      alert("Failed to upload PDF.")
+      alert(error.message || "Failed to upload PDF.")
     } finally {
       setUploading(false)
     }
@@ -37,13 +51,25 @@ function App() {
     setLoading(true)
     setAnswer('')
     try {
-      const response = await fetch(`http://127.0.0.1:8000/search?query=${encodeURIComponent(query)}&limit=3`)
+      const response = await fetch(`${API_BASE_URL}/search?query=${encodeURIComponent(query)}&limit=3`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Custom-Token': SECURITY_TOKEN // Authenticating search request
+        }
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Search failed')
+      }
+
       const data = await response.json()
       setAnswer(data.answer)
       setResults(data.results || [])
     } catch (error) {
       console.error("Search error:", error)
-      alert("Check if Backend is running.")
+      alert("Error connecting to the Smart Context API.")
     } finally {
       setLoading(false)
     }
