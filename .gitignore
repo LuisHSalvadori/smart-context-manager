@@ -1,0 +1,16 @@
+# Environments
+.env
+backend/.env
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDEs
+.vscode/
+
+**/venv/
+**/env/
