@@ -23,9 +23,14 @@ if not API_KEY or not DATABASE_URL:
     raise ValueError("Missing critical environment variables (GEMINI_API_KEY or DATABASE_URL)")
 
 # Middleware
+raw_origins = os.getenv("ALLOWED_ORIGINS", "")
+origins = [origin.strip() for origin in raw_origins.split(",") if origin]
+if not origins:
+    origins = ["http://localhost:5173"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
