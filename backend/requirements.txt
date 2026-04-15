@@ -14,5 +14,9 @@ psycopg2-binary
 
 # AI & Document Processing
 pypdf
+--find-links https://download.pytorch.org/whl/cpu
+torch
+torchvision
+torchaudio
 sentence-transformers
 google-genai
