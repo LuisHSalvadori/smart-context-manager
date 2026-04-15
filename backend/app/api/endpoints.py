@@ -7,7 +7,7 @@ from app.services.db_service import search_documents as db_search
 from app.services.ai_service import generate_safe_answer
 import logging
 
-# Standard logging setup for debugging
+# Standard logging setup for debugging and monitoring
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -93,49 +93,61 @@ async def upload_pdf(file: UploadFile = File(...)):
     tags=["AI Search"],
     summary="Search and Generate Answer"
 )
-async def handle_search(query: str, limit: int = 10): # Defaulted to 10 to match your new frontend limit
+async def handle_search(query: str, limit: int = 10):
     """
     Main RAG Endpoint:
     1. Validates query safety.
-    2. Converts query to a vector.
-    3. Retrieves 'limit' number of chunks from the DB.
-    4. Sends context to the AI for the final answer.
+    2. Converts query string to a vector.
+    3. Retrieves relevant chunks from the DB.
+    4. Generates a safe AI answer based on the context.
     """
     logger.info(f"--- SEARCH START: '{query}' with limit {limit} ---")
 
+    # 1. Safety Validation
     is_safe, error_message = validate_query_safety(query)
     if not is_safe:
         logger.warning(f"BLOCKED QUERY: {error_message}")
         raise HTTPException(status_code=400, detail=error_message)
 
-    # Convert the search string into a mathematical vector
+    # 2. Vector Generation
+    # Converts the search string into a mathematical vector list
     query_vector = generate_embedding(query)
     
-    # FIX: We now pass the 'limit' directly to the DB search
-    # We fetch slightly more chunks (limit + 2) to account for similarity filtering
+    # SHIELD: Prevent database crash if the AI Service fails to generate a vector
+    if query_vector is None:
+        logger.error("SEARCH FAILURE: Could not generate query vector.")
+        raise HTTPException(
+            status_code=503, 
+            detail="Embedding Service is currently unavailable. Please verify your API Key."
+        )
+
+    # 3. Database Retrieval
+    # We fetch more chunks than requested (limit + 2) to ensure high-quality matches
     results = db_search(query_vector, limit=limit + 2)
     
-    # Debug: See which chunks are being picked up
+    # Log raw results for debugging purposes
     for i, row in enumerate(results):
         logger.info(f"Raw Result {i+1}: Score {row[1]:.4f} | Text snippet: {row[0][:50]}...")
 
-    # Filter results by similarity score (0.12) and slice by the requested limit
+    # 4. Context Filtering
+    # Filter by similarity threshold (0.12) and slice to match user limit
     filtered = [row for row in results if row[1] > 0.12][:limit]
     
     if not filtered:
         logger.info("SEARCH END: No context found above threshold.")
         return {
             "query": query, 
-            "answer": "No relevant information found in the documents.",
+            "answer": "I couldn't find any specific information about that in the uploaded documents.",
             "results": []
         }
 
-    # Combine all retrieved text chunks into one context block for the AI
+    # 5. Answer Generation
+    # Combine chunks into a single string to serve as evidence for the AI
     context_text = "\n---\n".join([row[0] for row in filtered])
     
     logger.info(f"AI CALL: Sending prompt with {len(filtered)} context chunks.")
 
-    # Building the final prompt for Gemini
+    # Optimized Prompt for Professional Analysis
     prompt = f"""
     INSTRUCTION: You are a professional document analysis assistant.
     Answer the user's question accurately using ONLY the context provided below.
@@ -155,13 +167,12 @@ async def handle_search(query: str, limit: int = 10): # Defaulted to 10 to match
         logger.error(f"--- SEARCH FAILURE: AI Service Error: {exc} ---")
         raise HTTPException(
             status_code=503, 
-            detail=f"AI Service unavailable. Internal error: {str(exc)}"
+            detail=f"AI Answer Service unavailable. Internal error: {str(exc)}"
         )
 
     return {
         "query": query, 
         "answer": answer, 
         "source_count": len(filtered),
-        # Return chunks and scores to the frontend for transparency
         "results": [{"content": row[0], "similarity": row[1]} for row in filtered]
     }
