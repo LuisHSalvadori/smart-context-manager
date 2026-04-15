@@ -1,19 +1,28 @@
-from sentence_transformers import SentenceTransformer
+from google import genai
+from app.core.config import settings
 
-# Light and efficient model for generating 384-dimensional vector embeddings
-MODEL_NAME = "all-MiniLM-L6-v2"
-model = SentenceTransformer(MODEL_NAME)
+# Inicializa o cliente do Google GenAI usando sua API Key das configurações
+client = genai.Client(api_key=settings.GOOGLE_API_KEY)
 
 def generate_embedding(text: str) -> list[float]:
     """
-    Converts a string of text into a numerical vector (embedding).
-    Returns an empty list if the input text is empty or contains only whitespace.
+    Converte uma string de texto em um vetor numérico (embedding) usando a API do Google.
+    O modelo 'text-embedding-004' gera vetores de 768 dimensões.
     """
     if not text or not text.strip():
         return []
+
+    try:
+        # Gera o embedding usando o modelo profissional do Google
+        result = client.models.embed_content(
+            model="text-embedding-004",
+            contents=text
+        )
+        
+        # O resultado vem como uma lista de floats dentro do objeto de resposta
+        return result.embeddings[0].values
     
-    # Generate the embedding using the SentenceTransformer model
-    embedding = model.encode(text)
-    
-    # Convert the numpy array result to a standard Python list for database compatibility
-    return embedding.tolist()
+    except Exception as e:
+        print(f"Erro ao gerar embedding no Google: {e}")
+        # Em caso de erro na API, retorna lista vazia para não quebrar o fluxo
+        return []

@@ -32,7 +32,7 @@ def setup_database():
             CREATE TABLE IF NOT EXISTS documents (
                 id SERIAL PRIMARY KEY,
                 content TEXT,
-                embedding vector(384),
+                embedding vector(768),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
