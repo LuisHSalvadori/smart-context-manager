@@ -1,9 +1,18 @@
+# Web Framework & Server
 fastapi
-uvicorn
+uvicorn[standard]
+python-multipart
+
+# Configuration & Environment
 pydantic
+pydantic-settings
 python-dotenv
+
+# Database & ORM
+sqlalchemy
 psycopg2-binary
+
+# AI & Document Processing
 pypdf
 sentence-transformers
 google-genai
-sqlalchemy

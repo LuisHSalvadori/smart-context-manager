@@ -56,8 +56,11 @@ def validate_query_safety(query: str):
 # --- SECURITY TOKEN MIDDLEWARE ---
 @app.middleware("http")
 async def verify_security_token(request: Request, call_next):
-    # Allow health check and CORS pre-flight requests without token
-    if request.url.path == "/" or request.method == "OPTIONS":
+    # Lista de rotas públicas que não exigem o cabeçalho X-Custom-Token
+    public_paths = ["/", "/docs", "/openapi.json", "/redoc"]
+    
+    # Adicionamos a verificação na lista de caminhos públicos
+    if request.url.path in public_paths or request.method == "OPTIONS":
         return await call_next(request)
     
     token = request.headers.get("X-Custom-Token")
@@ -218,3 +221,7 @@ async def search_documents(query: str, limit: int = 3):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

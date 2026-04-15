@@ -1,44 +1,42 @@
 Smart Context Manager 🧠📂
 
-Smart Context Manager is a professional RAG (Retrieval-Augmented Generation) system that allows users to chat with their PDF documents. It combines FastAPI, PostgreSQL with the pgvector extension, and Google Gemini AI to deliver precise, context-aware answers based on document content.
+Smart Context Manager is a professional RAG (Retrieval-Augmented Generation) system designed for high-precision interaction with PDF documents. Built with a modular architecture, it combines FastAPI, PostgreSQL with the pgvector extension, and Google Gemini AI to deliver context-aware answers grounded strictly in uploaded content.
 🚀 Key Features
 
     Semantic Document Indexing: Converts PDF text into 384-dimensional vector embeddings using the all-MiniLM-L6-v2 transformer model.
 
-    Smart Chunking Strategy: Implements text fragmentation (1000 chars) with overlap (200 chars) to ensure no context is lost between paragraphs.
+    Smart Chunking Strategy: Implements optimized text fragmentation (1,000 chars) with strategic overlap (200 chars) to maintain semantic continuity.
 
-    AI Fallback System: High availability logic that switches between Gemini models (flash-lite and flash-latest) to ensure continuous service.
+    AI Fallback System: High-availability logic that automatically switches between Gemini models (flash-latest and flash-lite) if rate limits are hit, ensuring continuous service.
 
-    Modern UI: A sleek, dark-themed dashboard built with React and Tailwind CSS.
+    Modern UI: A sleek, dark-themed dashboard built with React.js, Vite, and Tailwind CSS.
 
-    Vector Search: Real-time similarity search using Cosine Distance through the pgvector extension, optimized with a calibrated threshold for multilingual support.
+    Vectorized Search: Real-time similarity search using Cosine Distance, optimized with a calibrated threshold for multilingual support.
 
 🛡️ Security & Reliability Layer
 
-This project implements advanced production-ready security practices:
+Built with production-ready standards to ensure data integrity:
 
-    Input Guardrails: Basic pattern matching to detect and block common prompt injection attempts (e.g., "ignore all previous instructions").
+    Security Token Middleware: All API requests require a custom X-Custom-Token header validation.
 
-    Security Token Middleware: Custom X-Custom-Token header validation required for all API requests.
+    Input & Output Guardrails: Integrated pattern matching to block prompt injection and post-generation checks to prevent system instruction leakage.
 
-    Output Guardrails: Post-generation checks to ensure the AI doesn't leak system instructions or bypass safety rules.
+    Filename Sanitization: Implements UUID-based renaming for all uploads to prevent path traversal and file collisions.
 
-    Similarity Thresholding: A calibrated threshold of 0.15 to ensure the AI only answers based on highly relevant context, preventing hallucinations.
+    Similarity Thresholding: Calibrated at 0.15 to ensure the AI only utilizes highly relevant context, significantly reducing hallucinations.
 
-    CORS Policy: Strict origin restriction to ensure only the legitimate frontend can communicate with the backend.
+    CORS Policy: Strict origin restrictions to ensure only authorized frontends can interact with the API.
 
 🛠️ Tech Stack
 Backend
 
     Language: Python 3.10+
 
-    Framework: FastAPI
+    Framework: FastAPI (Modular Design)
 
     AI/NLP: Sentence-Transformers (HuggingFace), Google GenAI (Gemini)
 
     Database: PostgreSQL + pgvector
-
-    Security: UUID filename sanitization & Security Middleware
 
 Frontend
 
@@ -46,29 +44,24 @@ Frontend
 
     Styling: Tailwind CSS
 
-    Environment: Vite
+    Build Tool: Vite
 
 📦 Prerequisites
 
-Before running the project, make sure you have:
-
-    Docker & Docker Compose
+Before running the project, ensure you have:
 
     Python 3.10+
 
     Node.js & npm/yarn
 
+    A PostgreSQL instance with the pgvector extension enabled
+
     A Google Gemini API Key
 
 🔧 Installation & Setup
-1. Database & Infrastructure
+1. Backend Setup
 
-The project uses Docker to provide a ready-to-use PostgreSQL instance with the vector extension.
-Bash
-
-docker-compose up -d
-
-2. Backend Setup
+Navigate to the backend directory and configure the environment:
 Bash
 
 cd backend
@@ -76,31 +69,55 @@ python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# Setup .env
-# Required: GEMINI_API_KEY, DATABASE_URL, APP_SECURITY_TOKEN, ALLOWED_ORIGINS
+Create a .env file in the backend/ root with the following variables:
+Snippet de código
 
-# Initialize Database Schema
+DATABASE_URL=your_postgresql_url
+GEMINI_API_KEY=your_gemini_api_key
+ALLOWED_ORIGINS=http://localhost:5173
+APP_SECURITY_TOKEN=your_custom_token
+
+Initialize the database and run the server (from the backend/ folder):
+Bash
+
+# Setup Database Schema
 python setup_db.py
 
-3. Frontend Setup
+# Run FastAPI from the modular entry point
+uvicorn app.main:app --reload
+
+2. Frontend Setup
 Bash
 
 cd frontend
 npm install
-
-# Setup .env
-# Required: VITE_API_URL, VITE_APP_SECURITY_TOKEN
-
+# Set VITE_API_URL and VITE_APP_SECURITY_TOKEN in your .env
 npm run dev
 
 📂 Project Structure
+
+The project follows a modular pattern for better maintainability:
 Plaintext
 
 ├── backend/
-│   ├── main.py            # FastAPI routes, RAG logic & Security Guardrails
-│   ├── database.py        # Connection and Session management (SQLAlchemy)
-│   ├── embeddings.py      # AI Model for vector generation (Sentence-Transformers)
-│   ├── setup_db.py        # Database schema & pgvector setup
-├── frontend/
-│   ├── src/App.jsx        # Modern Dashboard UI
-└── docker-compose.yml     # Infrastructure (PostgreSQL + pgvector)
+│   ├── app/
+│   │   ├── api/          # API Routes (Upload & Search Endpoints)
+│   │   ├── core/         # Security Middleware & Configs
+│   │   ├── db/           # Database Sessions & SQLAlchemy Models
+│   │   ├── services/     # RAG Logic, Embeddings, & AI Service
+│   │   └── main.py       # Application Entry Point
+│   ├── .env              # Environment Variables
+│   ├── setup_db.py       # Database Initialization Script
+│   └── requirements.txt  # Python Dependencies
+├── frontend/             # React Application
+└── README.MD             # Project Documentation
+
+🚀 Roadmap & Future Enhancements
+
+    User Authentication: Integration with Supabase Auth for private document libraries.
+
+    Intelligent File Management: Implementation of content-based hashing (SHA-256) to prevent duplicate indexing.
+
+    Advanced RAG Techniques: Adding a Reranking Layer (Cross-Encoders) and Hybrid Search (Vector + BM25).
+
+    Source Citation: Improving the UI to highlight specific snippets and pages used for each answer.
