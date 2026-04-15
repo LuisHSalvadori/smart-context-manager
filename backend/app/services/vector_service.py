@@ -17,10 +17,10 @@ def generate_embedding(text: str) -> list[float]:
     # List of models based on technical research. 
     # Names vary between Vertex AI and AI Studio, so we include variations.
     fallbacks = [
-        "text-embedding-004",
-        "text-multilingual-embedding-002",
-        "text-embedding-001",  # Standard AI Studio name for gemini-embedding-001
-        "textembedding-gecko@003"
+        "models/text-embedding-004",
+        "models/text-multilingual-embedding-002",
+        "models/embedding-001",
+        "models/text-embedding-gecko@003"
     ]
 
     for model_name in fallbacks:
