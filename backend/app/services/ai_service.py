@@ -1,20 +1,20 @@
 import logging
-import time
-import google.generativeai as genai
+from google import genai
 from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception
 from app.core.config import settings
 
 # Initialize logger
 logger = logging.getLogger(__name__)
 
-# Configure the stable SDK
-genai.configure(api_key=settings.GEMINI_API_KEY)
+# Initialize the modern Gemini Client
+# The new SDK uses a single client instance
+client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
-# Model names for the stable SDK
+# Modern model names for the new SDK
 FALLBACK_MODELS = ["gemini-1.5-flash", "gemini-1.5-flash-8b"]
 
-# Custom check for retries (429 is Rate Limit)
 def is_rate_limit_error(exception):
+    """Checks if the error is a 429 Rate Limit to trigger retry logic."""
     return "429" in str(exception)
 
 @retry(
@@ -27,10 +27,13 @@ def is_rate_limit_error(exception):
 )
 def fetch_ai_response(model_name: str, prompt: str) -> str:
     """
-    Executes the remote call using the stable generativeai SDK.
+    Executes the generation call using the NEW google-genai SDK.
     """
-    model = genai.GenerativeModel(model_name)
-    response = model.generate_content(prompt)
+    # In the new SDK, we call models.generate_content directly from the client
+    response = client.models.generate_content(
+        model=model_name,
+        contents=prompt
+    )
     
     if response and response.text:
         return response.text.strip()
@@ -39,7 +42,7 @@ def fetch_ai_response(model_name: str, prompt: str) -> str:
 
 def generate_safe_answer(prompt: str) -> str:
     """
-    Orchestrates the AI response generation with fallbacks.
+    Orchestrates AI response generation with fallbacks using the modern SDK.
     """
     for model_name in FALLBACK_MODELS:
         try:
@@ -51,7 +54,7 @@ def generate_safe_answer(prompt: str) -> str:
             if "429" in error_msg:
                 logger.error(f"Quota exceeded for model {model_name} after retries.")
             else:
-                logger.error(f"Unexpected failure for model {model_name}: {e}")
+                logger.error(f"Unexpected failure for model {model_name}: {error_msg[:100]}")
             continue
             
     raise RuntimeError("All AI models failed or are currently unavailable.")

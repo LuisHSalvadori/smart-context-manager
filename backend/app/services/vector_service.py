@@ -1,55 +1,45 @@
 import time
-import google.generativeai as genai
+import logging
+from google import genai
 from app.core.config import settings
 
-# Force REST transport to avoid gRPC routing issues on platforms like Render
-# This also helps ensure we hit the v1 stable endpoints
-genai.configure(api_key=settings.GEMINI_API_KEY, transport="rest")
+# Logger setup
+logger = logging.getLogger(__name__)
+
+# Initialize the new Gemini Client
+client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
 def generate_embedding(text: str) -> list[float]:
     """
-    Generates 768-dimension embeddings using the stable Google Generative AI SDK.
-    Forces usage of v1 API via REST to avoid 404/v1beta errors.
+    Generates 768-dimension embeddings using the NEW Google GenAI SDK.
+    This bypasses the deprecated google-generativeai 404 errors.
     """
     if not text or not text.strip():
         return None
 
-    # Official model identifiers for the stable v1 API
-    fallbacks = [
-        "models/text-embedding-004",
-        "models/embedding-001"
-    ]
+    # Modern model names
+    fallbacks = ["text-embedding-004", "embedding-001"]
 
     for model_name in fallbacks:
-        max_retries = 2
-        for attempt in range(max_retries):
-            try:
-                # Execution call using the stable SDK method
-                result = genai.embed_content(
-                    model=model_name,
-                    content=text,
-                    task_type="retrieval_document",
-                    output_dimensionality=768
-                )
-
-                if result and 'embedding' in result:
-                    print(f"✅ Success: Embedding generated with model: {model_name}")
-                    return result['embedding']
-
-            except Exception as e:
-                error_msg = str(e).lower()
-                wait_time = (attempt + 1) * 2
-                
-                print(f"❌ Failure on model {model_name}: {str(e)[:100]}")
-                
-                # If it's a rate limit error (429), we wait and retry.
-                # If it's a 404 or other structural error, we break and switch models.
-                if "429" in error_msg:
-                    time.sleep(wait_time)
-                else:
-                    break 
+        try:
+            # The new SDK call format
+            result = client.models.embed_content(
+                model=model_name,
+                contents=text,
+                config={
+                    "task_type": "RETRIEVAL_DOCUMENT",
+                    "output_dimensionality": 768
+                }
+            )
+            
+            if result and result.embeddings:
+                # The new SDK returns a list of embeddings
+                logger.info(f"✅ Success: Embedding generated with {model_name}")
+                return result.embeddings[0].values
         
-        print(f"⚠️ Switching to next fallback model after failures on: {model_name}")
+        except Exception as e:
+            logger.error(f"❌ Failure on model {model_name}: {str(e)[:100]}")
+            continue
 
-    print("🚨 CRITICAL: All embedding models failed.")
+    logger.critical("🚨 All embedding models failed with the new SDK.")
     return None
