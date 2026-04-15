@@ -2,7 +2,7 @@ from google import genai
 from app.core.config import settings
 
 # Inicializa o cliente do Google GenAI usando sua API Key das configurações
-client = genai.Client(api_key=settings.GOOGLE_API_KEY)
+client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
 def generate_embedding(text: str) -> list[float]:
     """
