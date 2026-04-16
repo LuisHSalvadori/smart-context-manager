@@ -1,47 +1,47 @@
 import logging
-from google import genai
-from google.genai import types 
+from typing import List, Optional
+from sentence_transformers import SentenceTransformer
 from app.core.config import settings
 
+# Logger configuration for tracking service operations
 logger = logging.getLogger(__name__)
 
-# Client Configuration: Forcing 'v1' to bypass the 404 errors seen in logs.
-client = genai.Client(
-    api_key=settings.GEMINI_API_KEY,
-    http_options={'api_version': 'v1'}
-)
+# Pre-loading the model at the module level to ensure it's warmed up during app startup.
+# 'all-MiniLM-L6-v2' is a lightweight, high-performance model optimized for document retrieval.
+try:
+    model = SentenceTransformer('all-MiniLM-L6-v2')
+    logger.info("SentenceTransformer model 'all-MiniLM-L6-v2' loaded successfully.")
+except Exception as e:
+    logger.critical(f"Failed to load SentenceTransformer model: {str(e)}")
+    raise
 
-def generate_embedding(text: str) -> list[float]:
+def generate_embedding(text: str) -> Optional[List[float]]:
     """
-    Generates embeddings using the most compatible model and handling response structure.
+    Generates a high-dimensional vector (embedding) for the given text using 
+    a local SentenceTransformer model.
+
+    Args:
+        text (str): The input string to be vectorized.
+
+    Returns:
+        Optional[List[float]]: A list of floats representing the embedding, 
+                               or None if the input is invalid or an error occurs.
     """
     if not text or not text.strip():
+        logger.warning("Received empty or whitespace-only text for embedding.")
         return None
 
-    # Adding 'models/' prefix as suggested by the API error message.
-    model_name = "models/embedding-001"
-
     try:
-        # Note: model 001 does NOT support output_dimensionality. 
-        # It is fixed at 768.
-        result = client.models.embed_content(
-            model=model_name,
-            contents=text,
-            config=types.EmbedContentConfig(
-                task_type="RETRIEVAL_DOCUMENT"
-            )
-        )
+        # Generate the embedding using CPU-based inference
+        # The result is a numpy array by default
+        embedding = model.encode(text)
         
-        # Checking both 'embedding' and 'embeddings' to be safe across SDK versions.
-        if result:
-            if hasattr(result, 'embedding') and result.embedding:
-                logger.info(f"✅ Success: Embedding generated via .embedding")
-                return result.embedding.values
-            elif hasattr(result, 'embeddings') and result.embeddings:
-                logger.info(f"✅ Success: Embedding generated via .embeddings[0]")
-                return result.embeddings[0].values
+        # Convert numpy array to a standard Python list for database compatibility (pgvector)
+        vector_list = embedding.tolist()
+        
+        logger.debug(f"Embedding generated successfully. Dimensions: {len(vector_list)}")
+        return vector_list
             
     except Exception as e:
-        logger.error(f"❌ Failure on model {model_name}: {str(e)}")
-
-    return None
+        logger.error(f"Inference failure during local embedding generation: {str(e)}")
+        return None
