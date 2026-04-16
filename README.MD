@@ -1,92 +1,79 @@
-# Smart Context Manager 🧠📂
+# Introduction
+Smart Context Manager is an intelligent document processing engine that transforms static PDFs into searchable knowledge bases. By leveraging Retrieval-Augmented Generation (RAG), the system breaks down complex documents into semantic "chunks," indexes them in a vector database, and allows users to query their data using natural language. It acts as a bridge between raw information and actionable insights, providing precise, context-aware answers grounded directly in the user's uploaded documents.
 
-Smart Context Manager is a modular RAG system for high-precision PDF interaction. It combines FastAPI + PostgreSQL(pgvector) backend with React + Vite frontend, using Google GenAI for embeddings and LLM responses.
+# 🚀 Evolution of the Embedding Architecture (The "Saga")
 
-## Recent Updates
-- **Embeddings via Google GenAI** — model discovery + automatic fallback on API errors.
-- **Vector normalization** — all embeddings stored at 768 dims (matches Supabase pgvector).
-- **Graceful chunk skipping** — failed embeddings logged and skipped (no DB crashes).
-- **Pydantic v1 pinned** — ensures FastAPI 0.135.3 compatibility.
+## The Challenge: Infrastructure Constraints
+Initially, the project hit a critical bottleneck during deployment to Render (Free Tier): the 500MB disk/RAM limit. Standard PyTorch installations include NVIDIA CUDA binaries exceeding 2GB, causing immediate deployment failure.
 
-## Key Features
-- **Semantic indexing** — embeddings via Google GenAI, normalized to 768 dimensions.
-- **Smart chunking** — configurable overlap to preserve context across splits.
-- **AI resilience** — automatic model fallback and rate-limit retries.
-- **Security** — X-Custom-Token middleware, prompt injection guards, filename UUIDing.
-- **Vector search** — cosine similarity via pgvector.
+## The Pivot: External API (Google Gemini)
+I attempted to offload processing to the Google Gemini API. However, persistent 404 (Batch Not Found) errors and SDK instabilities during runtime made external semantic search unreliable for this specific production environment.
 
-## Tech Stack
-**Backend**: Python 3.10+, FastAPI, SQLAlchemy, pgvector, Google GenAI  
-**Frontend**: React, Vite, Tailwind CSS
+## The Breakthrough: Resource Optimization & "Dependency Diet"
+I returned to local processing with a lean, CPU-optimized strategy:
 
-## Setup
+- **CPU-Only Implementation:** Forced torch==2.2.1+cpu via --find-links, slashing the library size from 2GB+ to ~200MB.
+- **Dependency Resolution:** Manually resolved "Dependency Hell" between transformers, tokenizers, and sentence-transformers to ensure compatibility with Python 3.10.
+- **The Result:** A robust, fast, and 100% free local semantic search engine that respects strict 500MB infrastructure limits.
+
+## 🛠 Recent Updates
+
+- Local Embeddings — Switched to local sentence-transformers for better reliability and zero API costs.
+- Optimized Vector Dimensions — Normalized all embeddings to 384 dimensions (optimized for speed and storage).
+- CPU-Only Build Pipeline — Custom build command for Render to stay within resource quotas.
+- Pydantic v2 Migration — Backend updated to leverage the latest Pydantic performance and validation features.
+
+## ✨ Key Features
+
+- **Semantic Indexing** — Local embeddings with 384-bit vector representation.
+- **Smart Chunking** — Configurable overlap to preserve context across document splits.
+- **Vector Search** — High-speed Cosine Similarity search via pgvector.
+- **Security** — X-Custom-Token middleware, prompt injection guards, and UUID-based file handling.
+
+## 💻 Tech Stack
+
+- **Backend:** Python 3.10+, FastAPI, SQLAlchemy, pgvector, Sentence-Transformers (PyTorch CPU).
+- **Frontend:** React, Vite, Tailwind CSS.
+- **Database:** PostgreSQL with pgvector extension.
+
+## 🚀 Setup & Installation
 
 ### Backend
+
 ```bash
 cd backend
 python -m venv venv
-# Windows:
-venv\Scripts\activate
-# macOS/Linux:
-source venv/bin/activate
+# Activate venv:
+# Windows: .\venv\Scripts\activate
+# Mac/Linux: source venv/bin/activate
 
-pip install --upgrade pip
+python -m pip install --upgrade pip
 pip install -r requirements.txt
-python setup_db.py    # initialize DB (first run only)
+python setup_db.py    # Initialize DB (first run only)
 uvicorn app.main:app --reload
 ```
 
-Create `backend/.env`:
+### Environment Variables (.env)
+
 ```env
 DATABASE_URL=postgresql://user:password@host/dbname
-GEMINI_API_KEY=your_gemini_api_key
-ALLOWED_ORIGINS=http://localhost:5173
+GEMINI_API_KEY=your_key_for_llm_responses_only
+EMBEDDING_DIM=384
 APP_SECURITY_TOKEN=your_custom_token
-EMBEDDING_DIM=768
 ```
 
-### Frontend
-```bash
-cd frontend
-npm install
-# Create frontend/.env:
-# VITE_API_URL=http://localhost:8000
-# VITE_APP_SECURITY_TOKEN=your_custom_token
-npm run dev
+## ⚠️ Troubleshooting
+
+### Vector Dimension Mismatch
+If you see a DB error, ensure your column is vector(384):
+
+```sql
+ALTER TABLE documents ALTER COLUMN embedding TYPE vector(384);
 ```
 
-## Troubleshooting
-- **ImportError / pydantic issues**: Ensure `pydantic<2` in requirements.txt. Recreate venv if needed:
-  ```bash
-  rm -r venv  # or: Remove-Item -Recurse venv (Windows)
-  python -m venv venv
-  venv\Scripts\activate
-  pip install -r requirements.txt
-  ```
-- **Embedding failures**: Check logs for "Discovered embedding candidates" and "✅ Success". Verify GEMINI_API_KEY.
-- **Vector dimension mismatch**: Confirm DB column is `vector(768)`. If changed, update EMBEDDING_DIM in .env and migrate DB:
-  ```sql
-  ALTER TABLE documents ALTER COLUMN embedding TYPE vector(768);
-  ```
-
-## Project Structure
+### Render Deploy
+Ensure your Build Command is set to:
 ```
-├── backend/
-│   ├── app/
-│   │   ├── api/          # endpoints & routes
-│   │   ├── core/         # config & security
-│   │   ├── db/           # database & models
-│   │   ├── services/     # business logic
-│   │   └── main.py
-│   ├── .env
-│   ├── requirements.txt
-│   └── setup_db.py
-├── frontend/             # React app
-└── README.MD
+pip install --no-cache-dir -r requirements.txt
 ```
-
-## Roadmap
-- Supabase Auth (multi-tenant)
-- Content-based deduplication (SHA-256)
-- Hybrid search (BM25 + vector)
-- Enhanced source citation UI
+And PYTHON_VERSION is set to 3.10.x.
